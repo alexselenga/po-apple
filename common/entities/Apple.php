@@ -4,29 +4,49 @@ namespace common\entities;
 
 use common\models\Apple as AppleModel;
 use Error;
+use yii\web\HttpException;
+use yii\web\NotFoundHttpException;
 
-class Apple
+class Apple implements AppleInterface
 {
-    const colors = ['red', 'green', 'blue'];
+    const colors = ['Красное', 'Зеленое', 'Желтое', 'Розовое', 'Оранжевое'];
 
     /**
      * @var AppleModel|null
      */
-    protected $appleModel = null;
+    protected $_appleModel = null;
 
 
-    public function __construct($color)
+    public function __construct($color = null)
     {
+        if (is_null($color)) return; //Не создаем запись в БД
+
         $model = new AppleModel;
+        $model->loadDefaultValues();
         $model->color = $color;
-        $this->appleModel->appear_date = time() - random_int(3600 * 3, 3600 * 7);
-        $model->save();
-        $this->appleModel = $model;
+        $model->appear_date = \Yii::$app->formatter->asDate(time() - random_int(0, 3600 * 10), 'php:Y-m-d H:i');
+        $this->_appleModel = $model;
+        $this->save();
+    }
+
+    public static function getApple($id): AppleInterface
+    {
+        $appleModel = AppleModel::findOne($id);
+
+        if (!$appleModel) {
+            throw new NotFoundHttpException('The requested page does not exist.');
+        }
+
+        $result = new Apple();
+        $result->_appleModel = $appleModel;
+        return $result;
     }
 
     public static function generateApples($count = 10)
     {
-        for ($i = 1; $i < $count; $i++) {
+        static::removeApples();
+
+        for ($i = 0; $i < $count; $i++) {
             $color = static::colors[random_int(0, count(static::colors) - 1)];
             new Apple($color);
         }
@@ -37,55 +57,30 @@ class Apple
         AppleModel::deleteAll();
     }
 
-    public function selectApple($id): bool
-    {
-        $this->appleModel = AppleModel::findOne($id);
-        return is_object($this->appleModel);
-    }
-
-    public function getColor(): string|null
-    {
-        return $this->appleModel ? $this->appleModel->color : null;
-    }
-
-    public function getSize(): float|null
-    {
-        return $this->appleModel ? $this->appleModel->size : null;
-    }
-
-    public function getStatus(): int|null
-    {
-        if (!$this->appleModel) return null;
-        $this->checkStatus();
-        return $this->appleModel->status;
-    }
-
     public function fallToGround()
     {
-        if (!$this->appleModel) return;
+        $appleModel = $this->getAppleModel();
 
         if (AppleModel::STATUS_HANGING) {
-            $this->appleModel->status = AppleModel::STATUS_FALLED;
-            $this->appleModel->fall_date = time();
-            $this->appleModel->save();
+            $appleModel->status = AppleModel::STATUS_FALLED;
+            $appleModel->fall_date = \Yii::$app->formatter->asDate(time(), 'php:Y-m-d H:i');
+            $this->save();
         }
     }
 
     public function eat($percent)
     {
         if ($percent < 0 || $percent > 100) return;
-        if (!$this->appleModel) return;
+        $appleModel = $this->getAppleModel();
 
-        $this->checkStatus();
-
-        if ($this->appleModel->status != AppleModel::STATUS_FALLED) {
+        if ($appleModel->status != AppleModel::STATUS_FALLED) {
             throw new Error('Яблоко еще на дереве!');
         }
 
-        $this->appleModel->size = $this->appleModel->size - $percent / 100;
+        $appleModel->size = $appleModel->size - $percent / 100;
 
-        if ($this->appleModel->size > 0) {
-            $this->appleModel->save();
+        if ($appleModel->size > 0) {
+            $this->save();
         } else {
             $this->delete();
         }
@@ -93,23 +88,41 @@ class Apple
 
     public function delete()
     {
-        if (!$this->appleModel) return;
-
-        $this->appleModel->delete();
-        $this->appleModel = null;
+        $this->getAppleModel()->delete();
+        $this->_appleModel = null;
     }
 
-    protected function checkStatus()
+    public function getColor(): string
     {
-        if (!$this->appleModel) return;
+        return $this->getAppleModel()->color;
+    }
 
-        if ($this->appleModel->status == AppleModel::STATUS_FALLED) {
-            $fallHours = (time() - $this->appleModel->fall_date) / 3600;
+    public function getSize(): float
+    {
+        return $this->getAppleModel()->size;
+    }
 
-            if ($fallHours >= 5) {
-                $this->appleModel->status = AppleModel::STATUS_BAD;
-                $this->appleModel->save();
-            }
+    public function getStatus(): int
+    {
+        return $this->getAppleModel()->status;
+    }
+
+    protected function save()
+    {
+        $appleModel = $this->getAppleModel();
+        $appleModel->save();
+
+        if ($appleModel->hasErrors()) {
+            throw new HttpException('Apple entity error on save.');
+        }
+    }
+
+    protected function getAppleModel(): AppleModel
+    {
+        if (!$this->_appleModel) {
+            throw new HttpException('Apple entity error on get model.');
         };
+
+        return $this->_appleModel;
     }
 }

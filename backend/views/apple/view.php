@@ -2,12 +2,13 @@
 
 use yii\helpers\Html;
 use yii\widgets\DetailView;
+use yii\widgets\Pjax;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\Apple */
 
 $this->title = $model->id;
-$this->params['breadcrumbs'][] = ['label' => 'Apples', 'url' => ['index']];
+$this->params['breadcrumbs'][] = ['label' => 'Яблоки', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 \yii\web\YiiAsset::register($this);
 ?>
@@ -15,27 +16,38 @@ $this->params['breadcrumbs'][] = $this->title;
 
     <h1><?= Html::encode($this->title) ?></h1>
 
-    <p>
-        <?= Html::a('Update', ['update', 'id' => $model->id], ['class' => 'btn btn-primary']) ?>
-        <?= Html::a('Delete', ['delete', 'id' => $model->id], [
-            'class' => 'btn btn-danger',
-            'data' => [
-                'confirm' => 'Are you sure you want to delete this item?',
-                'method' => 'post',
-            ],
-        ]) ?>
-    </p>
+    <?php Pjax::begin([ 'id' => 'pjaxAppleView' ]); ?>
 
     <?= DetailView::widget([
         'model' => $model,
         'attributes' => [
             'id',
             'color',
-            'appear_date',
-            'fall_date',
-            'status',
-            'size',
+            [
+                'attribute' => 'appear_date',
+                'format' => 'datetime',
+            ],
+            [
+                'attribute' => 'fall_date',
+                'format' => 'datetime',
+            ],
+            [
+                'attribute' => 'status',
+                'value' => $model::STATUSES[$model->status],
+            ],
+            [
+                'attribute' => 'size',
+                'value' => $model->size * 100 . '%',
+            ],
         ],
     ]) ?>
 
+    <div class="form-group">
+        <?= Html::button('Упасть', ['class' => 'btn btn-success', 'id' => 'apple-fall', 'disabled' => $model->status != $model::STATUS_HANGING]) ?>
+        <hr>
+        <?= Html::textInput('Упасть', null, ['id' => 'apple-eat-percent', 'disabled' => $model->status != $model::STATUS_FALLED]) ?>
+        <?= Html::button('Съесть', ['class' => 'btn btn-danger', 'id' => 'apple-eat', 'disabled' => $model->status != $model::STATUS_FALLED]) ?>
+    </div>
+
+    <?php Pjax::end(); ?>
 </div>

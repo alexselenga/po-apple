@@ -2,8 +2,6 @@
 
 namespace common\models;
 
-use Yii;
-
 /**
  * This is the model class for table "apple".
  *
@@ -19,6 +17,14 @@ class Apple extends \yii\db\ActiveRecord
     const STATUS_HANGING = 10; //Висит
     const STATUS_FALLED = 20; //Упало
     const STATUS_BAD = 30; //Сгнило
+
+    const STATUSES = [
+        self::STATUS_HANGING => 'Висит на дереве',
+        self::STATUS_FALLED => 'Упало',
+        self::STATUS_BAD => 'Сгнило'
+    ];
+
+    const FALLED_HOURS = 5;
 
     /**
      * {@inheritdoc}
@@ -59,5 +65,19 @@ class Apple extends \yii\db\ActiveRecord
             'status' => 'Статус',
             'size' => 'Целостность',
         ];
+    }
+
+    public function afterFind()
+    {
+        parent::afterFind();
+
+        if ($this->status == static::STATUS_FALLED) {
+            $fallHours = (time() - strtotime($this->fall_date)) / 3600;
+
+            if ($fallHours > static::FALLED_HOURS) {
+                $this->status = static::STATUS_BAD;
+                $this->save();
+            }
+        };
     }
 }
